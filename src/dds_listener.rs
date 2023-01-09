@@ -15,7 +15,7 @@
 */
 
 //! A Listner can be attached to different types of entities. The callbacks that
-//! are supported depends on the type of entity. There is no checking for whether 
+//! are supported depends on the type of entity. There is no checking for whether
 //! an entity supports the callback.
 //! # Example
 //! ```
@@ -44,7 +44,8 @@ struct Callbacks {
     on_sample_lost: Option<Box<dyn FnMut(DdsEntity, dds_sample_lost_status_t) + 'static>>,
     on_data_available: Option<Box<dyn FnMut(DdsEntity) + 'static>>,
     on_sample_rejected: Option<Box<dyn FnMut(DdsEntity, dds_sample_rejected_status_t) + 'static>>,
-    on_liveliness_changed: Option<Box<dyn FnMut(DdsEntity, dds_liveliness_changed_status_t) + 'static>>,
+    on_liveliness_changed:
+        Option<Box<dyn FnMut(DdsEntity, dds_liveliness_changed_status_t) + 'static>>,
     on_requested_deadline_missed:
         Option<Box<dyn FnMut(DdsEntity, dds_requested_deadline_missed_status_t) + 'static>>,
     on_requested_incompatible_qos:
@@ -61,7 +62,8 @@ struct Callbacks {
     on_publication_matched:
         Option<Box<dyn FnMut(DdsEntity, dds_publication_matched_status_t) + 'static>>,
 
-    on_inconsistent_topic: Option<Box<dyn FnMut(DdsEntity, dds_inconsistent_topic_status_t) + 'static>>,
+    on_inconsistent_topic:
+        Option<Box<dyn FnMut(DdsEntity, dds_inconsistent_topic_status_t) + 'static>>,
     on_data_on_readers: Option<Box<dyn FnMut(DdsEntity) + 'static>>,
 }
 
@@ -85,9 +87,7 @@ impl<'a> Default for Callbacks {
     }
 }
 
-unsafe impl Send for Inner {
-    
-}
+unsafe impl Send for Inner {}
 struct Inner {
     listener: Option<*mut dds_listener_t>,
     callbacks: Option<Box<Callbacks>>,
@@ -96,20 +96,20 @@ struct Inner {
 
 #[derive(Clone)]
 pub struct DdsListener {
-    inner : std::sync::Arc<std::sync::Mutex<Inner>>,
+    inner: std::sync::Arc<std::sync::Mutex<Inner>>,
 }
 
 impl<'a> DdsListener {
     pub fn new() -> Self {
-        Self { 
-            inner : std::sync::Arc::new( std::sync::Mutex::new( Inner {
+        Self {
+            inner: std::sync::Arc::new(std::sync::Mutex::new(Inner {
                 listener: None,
-            callbacks: Some(Box::new(Callbacks::default())),
-            raw_ptr: None,
-            }))
+                callbacks: Some(Box::new(Callbacks::default())),
+                raw_ptr: None,
+            })),
         }
     }
-} 
+}
 
 impl<'a> Default for DdsListener {
     fn default() -> Self {
@@ -168,7 +168,7 @@ impl<'a> DdsListener {
     }
 
     /// register the callbacks for the closures that have been set.DdsListener
-    unsafe fn register_callbacks(& self, listener: *mut dds_listener_t, callbacks: &Callbacks) {
+    unsafe fn register_callbacks(&self, listener: *mut dds_listener_t, callbacks: &Callbacks) {
         if callbacks.on_data_available.is_some() {
             println!("Listener hooked for data available");
             dds_lset_data_available(listener, Some(Self::call_data_available_closure));
@@ -233,7 +233,7 @@ impl<'a> DdsListener {
 impl DdsListener {
     pub fn on_data_available<F>(self, callback: F) -> Self
     where
-        F: FnMut(DdsEntity) + 'static ,
+        F: FnMut(DdsEntity) + 'static,
     {
         if let Some(callbacks) = &mut self.inner.lock().unwrap().callbacks {
             callbacks.on_data_available = Some(Box::new(callback));

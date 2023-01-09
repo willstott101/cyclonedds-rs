@@ -169,72 +169,65 @@ impl<T> Deref for SampleStorage<T> {
 impl<T> Drop for SampleStorage<T> {
     fn drop(&mut self) {
         match self {
-            SampleStorage::Loaned(t) => {
-            }
-            _ => {
-
-            }
+            SampleStorage::Loaned(t) => {}
+            _ => {}
         }
     }
 }
 
-
 pub struct Sample<T> {
-    //Serdata is used for incoming samples. We hold a reference to the ddsi_serdata which contains 
+    //Serdata is used for incoming samples. We hold a reference to the ddsi_serdata which contains
     // the sample
     serdata: Option<*mut ddsi_serdata>,
     // sample is used for outgoing samples.
     sample: Option<SampleStorage<T>>,
 }
 
-impl<'a,T> Sample<T>
+impl<'a, T> Sample<T>
 where
-    T: TopicType
+    T: TopicType,
 {
-    pub fn try_deref<>(&self) -> Option<&T> {       
-            if let Some(serdata) = self.serdata {
-                let serdata = SerData::<T>::mut_ref_from_serdata(serdata);
-                match &serdata.sample {
-                    SampleData::Uninitialized => None,
-                    SampleData::SDKKey => None,
-                    SampleData::SDKData(it) => Some(it.as_ref()),
-                    SampleData::SHMData(it) => unsafe { Some(it.as_ref())},
-                }
-            } else {
-                None
+    pub fn try_deref(&self) -> Option<&T> {
+        if let Some(serdata) = self.serdata {
+            let serdata = SerData::<T>::mut_ref_from_serdata(serdata);
+            match &serdata.sample {
+                SampleData::Uninitialized => None,
+                SampleData::SDKKey => None,
+                SampleData::SDKData(it) => Some(it.as_ref()),
+                SampleData::SHMData(it) => unsafe { Some(it.as_ref()) },
             }
-  
+        } else {
+            None
+        }
     }
 
     pub fn get_sample(&self) -> Option<SampleStorage<T>> {
         //if let Ok(t) = self.sample.write() {
-            match self.sample.as_ref() {
-                Some(s) => match s {
-                    SampleStorage::Owned(s) => Some(SampleStorage::Owned(s.clone())),
-                    SampleStorage::Loaned(s) => Some(SampleStorage::Loaned(s.clone())),
-                },
-                None => None,
-            }
+        match self.sample.as_ref() {
+            Some(s) => match s {
+                SampleStorage::Owned(s) => Some(SampleStorage::Owned(s.clone())),
+                SampleStorage::Loaned(s) => Some(SampleStorage::Loaned(s.clone())),
+            },
+            None => None,
+        }
     }
 
     // Deprecated as this function can panic
     #[deprecated]
-    pub (crate)fn get(&self) -> Option<Arc<T>> {
+    pub(crate) fn get(&self) -> Option<Arc<T>> {
         //let t = self.sample;
         match &self.sample {
             Some(SampleStorage::Owned(t)) => Some(t.clone()),
-            Some(SampleStorage::Loaned(t)) => {
-                None
-            }
-            None => {
-                None
-            }
+            Some(SampleStorage::Loaned(t)) => None,
+            None => None,
         }
     }
 
-    pub(crate) fn set_serdata(&mut self,serdata:*mut ddsi_serdata) {
+    pub(crate) fn set_serdata(&mut self, serdata: *mut ddsi_serdata) {
         // Increment the reference count
-        unsafe {ddsi_serdata_addref(serdata);}
+        unsafe {
+            ddsi_serdata_addref(serdata);
+        }
         self.serdata = Some(serdata)
     }
 
@@ -261,7 +254,7 @@ where
 
     pub fn from(it: Arc<T>) -> Self {
         Self {
-            serdata : None,
+            serdata: None,
             sample: Some(SampleStorage::Owned(it)),
         }
     }
@@ -270,7 +263,7 @@ where
 impl<T> Default for Sample<T> {
     fn default() -> Self {
         Self {
-            serdata : None,
+            serdata: None,
             sample: None,
         }
     }
@@ -279,13 +272,10 @@ impl<T> Default for Sample<T> {
 impl<T> Drop for Sample<T> {
     fn drop(&mut self) {
         if let Some(serdata) = self.serdata {
-            unsafe {ddsi_serdata_removeref(serdata)};
+            unsafe { ddsi_serdata_removeref(serdata) };
         }
     }
 }
-
-
-
 
 ///
 /// TODO: UNSAFE WARNING Review needed. Forcing SampleBuffer<T> to be Send
@@ -306,7 +296,7 @@ pub struct SampleBuffer<T> {
     pub(crate) sample_info: Vec<cyclonedds_sys::dds_sample_info>,
 }
 
-impl<'a, T:TopicType> SampleBuffer<T> {
+impl<'a, T: TopicType> SampleBuffer<T> {
     pub fn new(len: usize) -> Self {
         let mut buf = Self {
             buffer: Vec::new(),
@@ -334,7 +324,6 @@ impl<'a, T:TopicType> SampleBuffer<T> {
         let p = self.buffer.iter().filter_map(|p| {
             let sample = unsafe { &*(*p) };
             sample.try_deref()
-            
         });
         p
     }
@@ -877,11 +866,14 @@ unsafe extern "C" fn serdata_to_ser_unref<T>(serdata: *mut ddsi_serdata, _iov: *
     ddsi_serdata_removeref(&mut serdata.serdata)
 }
 
-fn deserialize_type<T>(data:&[u8]) -> Result<Arc<T>,()> 
-    where
-    T: DeserializeOwned {
-        cdr::deserialize::<Box<T>>(data).map(|t| Arc::from(t)).map_err(|_e|())
-    }
+fn deserialize_type<T>(data: &[u8]) -> Result<Arc<T>, ()>
+where
+    T: DeserializeOwned,
+{
+    cdr::deserialize::<Box<T>>(data)
+        .map(|t| Arc::from(t))
+        .map_err(|_e| ())
+}
 
 #[allow(dead_code)]
 unsafe extern "C" fn serdata_to_sample<T>(
@@ -1122,7 +1114,7 @@ unsafe extern "C" fn from_iox_buffer<T>(
 
 fn create_serdata_ops<T>() -> Box<ddsi_serdata_ops>
 where
-    T: DeserializeOwned + TopicType + Serialize ,
+    T: DeserializeOwned + TopicType + Serialize,
 {
     Box::new(ddsi_serdata_ops {
         eqkey: Some(eqkey::<T>),
@@ -1175,7 +1167,6 @@ impl<T> Default for SampleData<T> {
     }
 }
 
-
 #[derive(PartialEq, Clone)]
 enum KeyHash {
     None,
@@ -1208,7 +1199,7 @@ impl KeyHash {
 
 /// A representation for the serialized data.
 #[repr(C)]
-pub (crate)struct SerData<T> {
+pub(crate) struct SerData<T> {
     serdata: ddsi_serdata,
     sample: SampleData<T>,
     //data in CDR format. This is put into an option as we only create
@@ -1250,23 +1241,26 @@ impl<'a, T> SerData<T> {
     }
 }
 
-impl <T>Clone for SerData<T> {
+impl<T> Clone for SerData<T> {
     fn clone(&self) -> Self {
-        Self { 
-                serdata: {
-                    let mut newdata = self.serdata.clone();
-                    unsafe {ddsi_serdata_addref(&mut newdata)};
-                    newdata
-                }, sample:  match &self.sample {
-                        SampleData::Uninitialized => SampleData::Uninitialized,
-                        SampleData::SDKKey => SampleData::SDKKey,
-                        SampleData::SDKData(d) => SampleData::SDKData(d.clone()),
-                        SampleData::SHMData(d) => SampleData::SHMData(d.clone()),
-                    }, cdr: self.cdr.clone(), key_hash: self.key_hash.clone(), serialized_size: self.serialized_size.clone() }
+        Self {
+            serdata: {
+                let mut newdata = self.serdata.clone();
+                unsafe { ddsi_serdata_addref(&mut newdata) };
+                newdata
+            },
+            sample: match &self.sample {
+                SampleData::Uninitialized => SampleData::Uninitialized,
+                SampleData::SDKKey => SampleData::SDKKey,
+                SampleData::SDKData(d) => SampleData::SDKData(d.clone()),
+                SampleData::SHMData(d) => SampleData::SHMData(d.clone()),
+            },
+            cdr: self.cdr.clone(),
+            key_hash: self.key_hash.clone(),
+            serialized_size: self.serialized_size.clone(),
+        }
     }
-} 
-
-
+}
 
 /*  These functions are created from the macros in
     https://github.com/eclipse-cyclonedds/cyclonedds/blob/f879dc0ef56eb00857c0cbb66ee87c577ff527e8/src/core/ddsi/include/dds/ddsi/q_radmin.h#L108
