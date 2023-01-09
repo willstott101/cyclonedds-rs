@@ -34,7 +34,6 @@ mod dds_waitset;
 pub mod dds_writer;
 pub mod error;
 pub mod serdes;
-pub mod topic_type_methods;
 
 pub use common::{DdsReadable, DdsWritable, Entity};
 pub use dds_api::*;
